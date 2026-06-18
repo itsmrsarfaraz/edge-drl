@@ -31,6 +31,7 @@ class User extends Authenticatable
         ];
     }
 
+    // ── Relationships ──────────────────────────────────────────
     public function simulations(): HasMany
     {
         return $this->hasMany(Simulation::class);
