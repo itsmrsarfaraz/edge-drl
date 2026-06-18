@@ -105,6 +105,47 @@
                 @endif
             </div>
 
+            {{-- Tasks Preview --}}
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider">IoT Tasks</h2>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs text-slate-500">{{ $stats['total_tasks'] }} generated</span>
+                        <a href="{{ route('simulations.tasks.index', $simulation) }}"
+                           class="text-xs text-primary-400 hover:text-primary-300 transition-colors">
+                            View all →
+                        </a>
+                    </div>
+                </div>
+                @if($stats['total_tasks'] === 0)
+                    <div class="flex items-center justify-between py-4">
+                        <p class="text-sm text-slate-500">No tasks generated yet.</p>
+                        <form method="POST" action="{{ route('simulations.tasks.generate', $simulation) }}">
+                            @csrf
+                            <button type="submit"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 hover:bg-primary-500
+                                           text-white text-xs font-medium rounded-lg transition-colors">
+                                Generate Tasks
+                            </button>
+                        </form>
+                    </div>
+                @else
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        @foreach([
+                            ['label' => 'Total',     'value' => $stats['total_tasks'],     'color' => 'text-slate-200'],
+                            ['label' => 'Completed', 'value' => $stats['completed_tasks'], 'color' => 'text-emerald-400'],
+                            ['label' => 'Pending',   'value' => $stats['total_tasks'] - $stats['completed_tasks'] - $stats['failed_tasks'], 'color' => 'text-slate-400'],
+                            ['label' => 'Failed',    'value' => $stats['failed_tasks'],    'color' => 'text-red-400'],
+                        ] as $m)
+                        <div class="bg-slate-800/60 rounded-lg p-3 text-center">
+                            <p class="text-xl font-bold {{ $m['color'] }}">{{ $m['value'] }}</p>
+                            <p class="text-xs text-slate-500 mt-0.5">{{ $m['label'] }}</p>
+                        </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+
             {{-- Training Runs Preview --}}
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
                 <div class="flex items-center justify-between mb-4">
