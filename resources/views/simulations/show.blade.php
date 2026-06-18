@@ -123,8 +123,9 @@
                         <form method="POST" action="{{ route('simulations.tasks.generate', $simulation) }}">
                             @csrf
                             <button type="submit"
+                                    onclick="this.disabled=true; this.innerText='Generating…'; this.form.submit();"
                                     class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 hover:bg-primary-500
-                                           text-white text-xs font-medium rounded-lg transition-colors">
+                                        text-white text-xs font-medium rounded-lg transition-colors">
                                 Generate Tasks
                             </button>
                         </form>

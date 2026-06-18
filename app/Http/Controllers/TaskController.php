@@ -38,6 +38,7 @@ class TaskController extends Controller
         $this->authorizeSimulation($simulation);
 
         $scriptPath = base_path('python/task_generator/generate_tasks.py');
+        $pythonBin  = env('PYTHON_PATH', 'python3');
 
         $env = array_merge($_ENV, [
             'DB_HOST'     => config('database.connections.mysql.host'),
@@ -49,7 +50,7 @@ class TaskController extends Controller
 
         $process = new Process(
             [
-                'python3',
+                $pythonBin,
                 $scriptPath,
                 "--simulation_id={$simulation->id}",
                 "--num_tasks={$simulation->num_tasks}",

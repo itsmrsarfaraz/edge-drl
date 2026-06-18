@@ -35,12 +35,14 @@ class GenerateTasks extends Command
             'DB_DATABASE' => config('database.connections.mysql.database'),
         ]);
 
+        $pythonBin = env('PYTHON_PATH', 'python3');
+
         $process = new Process(
-            ['python3', $scriptPath, "--simulation_id={$simulationId}", "--num_tasks={$numTasks}"],
+            [$pythonBin, $scriptPath, "--simulation_id={$simulationId}", "--num_tasks={$numTasks}"],
             null,
             $env,
             null,
-            120 // 2 minute timeout
+            120
         );
 
         $process->run();
