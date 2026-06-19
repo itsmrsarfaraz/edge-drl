@@ -12,16 +12,13 @@ import numpy as np
 from typing import Optional, Callable
 
 import torch
-torch.set_num_threads(2)   # limit CPU threads — polite on a shared laptop
+torch.set_num_threads(2)
 
 from stable_baselines3 import PPO, DQN
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.env_util import make_vec_env
 
 from environment.edge_computing_env import EdgeComputingEnv
 
-
-# ── Model storage path ─────────────────────────────────────────
 MODELS_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)),
     "models", "saved"
@@ -30,8 +27,6 @@ os.makedirs(MODELS_DIR, exist_ok=True)
 
 
 class ProgressCallback(BaseCallback):
-    """Reports training progress % back to FastAPI via callback."""
-
     def __init__(self, total_timesteps: int, callback_fn: Callable, verbose=0):
         super().__init__(verbose)
         self.total_timesteps = total_timesteps
@@ -44,10 +39,6 @@ class ProgressCallback(BaseCallback):
 
 
 class AgentTrainer:
-    """
-    Manages PPO / DQN training and inference for a simulation.
-    """
-
     def __init__(
         self,
         env,
@@ -71,68 +62,45 @@ class AgentTrainer:
         total_timesteps:   int = 10000,
         progress_callback: Optional[Callable] = None,
     ) -> dict:
-        """
-        Train the agent. Returns a result dict with metrics.
-        Uses small networks to stay fast on CPU.
-        """
 
-        # ── Small network policy for CPU speed ────────────────
-        policy_kwargs = dict(
-            net_arch = [64, 64],   # 2 hidden layers of 64 units
-        )
+        policy_kwargs = dict(net_arch=[64, 64])
 
         if self.algorithm == "PPO":
             self.model = PPO(
-                "MlpPolicy",
-                self.env,
-                learning_rate  = 3e-4,
-                n_steps        = 256,
-                batch_size     = 64,
-                n_epochs       = 5,
-                gamma          = 0.99,
-                clip_range     = 0.2,
-                policy_kwargs  = policy_kwargs,
-                device         = "cpu",
-                verbose        = 0,
+                "MlpPolicy", self.env,
+                learning_rate=3e-4, n_steps=256, batch_size=64,
+                n_epochs=5, gamma=0.99, clip_range=0.2,
+                policy_kwargs=policy_kwargs, device="cpu", verbose=0,
             )
         elif self.algorithm == "DQN":
             self.model = DQN(
-                "MlpPolicy",
-                self.env,
-                learning_rate         = 1e-4,
-                buffer_size           = 5000,
-                learning_starts       = 500,
-                batch_size            = 64,
-                tau                   = 0.005,
-                gamma                 = 0.99,
-                train_freq            = 4,
-                target_update_interval= 500,
-                policy_kwargs         = policy_kwargs,
-                device                = "cpu",
-                verbose               = 0,
+                "MlpPolicy", self.env,
+                learning_rate=1e-4, buffer_size=5000, learning_starts=500,
+                batch_size=64, tau=0.005, gamma=0.99, train_freq=4,
+                target_update_interval=500,
+                policy_kwargs=policy_kwargs, device="cpu", verbose=0,
             )
         else:
             raise ValueError(f"Unsupported algorithm: {self.algorithm}")
 
-        # ── Callbacks ──────────────────────────────────────────
         callbacks = []
         if progress_callback:
-            callbacks.append(
-                ProgressCallback(total_timesteps, progress_callback)
-            )
+            callbacks.append(ProgressCallback(total_timesteps, progress_callback))
 
-        # ── Train ──────────────────────────────────────────────
         self.model.learn(
-            total_timesteps = total_timesteps,
-            callback        = callbacks if callbacks else None,
-            progress_bar    = False,
+            total_timesteps=total_timesteps,
+            callback=callbacks if callbacks else None,
+            progress_bar=False,
         )
 
-        # ── Save model ─────────────────────────────────────────
         self.model.save(self.model_path.replace(".zip", ""))
 
-        # ── Evaluate: run one episode with trained model ───────
+        # ── Run evaluation episode ─────────────────────────────
         eval_summary = self._evaluate()
+
+        # ── Persist node utilization to MySQL ──────────────────
+        node_util = self._extract_node_utilization(eval_summary)
+        self._persist_node_utilization(node_util)
 
         return {
             "algorithm":       self.algorithm,
@@ -143,6 +111,7 @@ class AgentTrainer:
             "mean_latency_ms": eval_summary.get("mean_latency_ms"),
             "episodes":        1,
             "eval_summary":    eval_summary,
+            "node_utilization": node_util,
         }
 
     def _evaluate(self) -> dict:
@@ -157,14 +126,97 @@ class AgentTrainer:
 
         return self.env.get_episode_summary()
 
-    def infer(self, tasks: list) -> dict:
+    def _extract_node_utilization(self, eval_summary: dict) -> list:
         """
-        Allocate a list of tasks using a trained model (or greedy fallback).
-        Returns allocations + summary metrics.
+        Build per-node utilization snapshot from env state
+        after the evaluation episode.
         """
-        # Try loading saved model
-        model_loaded = self._try_load_model()
+        nodes = []
+        for i in range(self.env.num_nodes):
+            cpu_cap = self.env.cpu_capacities[i]
+            mem_cap = self.env.mem_capacities[i]
+            cpu_used = float(self.env.node_cpu_used[i])
+            mem_used = float(self.env.node_mem_used[i])
+            queue    = int(self.env.node_queue[i])
 
+            cpu_pct = round(min(cpu_used / max(cpu_cap, 1) * 100, 100), 2)
+            mem_pct = round(min(mem_used / max(mem_cap, 1) * 100, 100), 2)
+
+            # Determine status from utilization
+            if cpu_pct >= 90 or mem_pct >= 90:
+                status = "overloaded"
+            elif cpu_pct >= 40 or queue > 3:
+                status = "busy"
+            elif cpu_pct > 0:
+                status = "busy"
+            else:
+                status = "idle"
+
+            nodes.append({
+                "index":       i,
+                "cpu_used":    cpu_used,
+                "mem_used":    mem_used,
+                "cpu_pct":     cpu_pct,
+                "mem_pct":     mem_pct,
+                "queue":       queue,
+                "status":      status,
+                "util_pct":    round((cpu_pct + mem_pct) / 2, 2),
+            })
+
+        return nodes
+
+    def _persist_node_utilization(self, node_util: list) -> None:
+        """Write node utilization back to MySQL edge_nodes table."""
+        try:
+            import mysql.connector
+            import sys
+            import os
+            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from utils.config import db_config
+
+            conn   = mysql.connector.connect(**db_config())
+            cursor = conn.cursor(dictionary=True)
+
+            # Get edge nodes for this simulation ordered by name
+            cursor.execute(
+                "SELECT id, name FROM edge_nodes WHERE simulation_id = %s ORDER BY name ASC",
+                (self.simulation_id,)
+            )
+            db_nodes = cursor.fetchall()
+
+            for i, db_node in enumerate(db_nodes):
+                if i >= len(node_util):
+                    break
+
+                util = node_util[i]
+                cursor.execute("""
+                    UPDATE edge_nodes SET
+                        cpu_used               = %s,
+                        memory_used            = %s,
+                        queue_length           = %s,
+                        utilization_percentage = %s,
+                        status                 = %s,
+                        updated_at             = NOW()
+                    WHERE id = %s
+                """, (
+                    round(util["cpu_used"], 2),
+                    round(util["mem_used"], 2),
+                    util["queue"],
+                    util["util_pct"],
+                    util["status"],
+                    db_node["id"],
+                ))
+
+            conn.commit()
+            cursor.close()
+            conn.close()
+
+        except Exception as e:
+            # Non-fatal — training result is still saved even if node update fails
+            print(f"[WARN] Could not persist node utilization: {e}", flush=True)
+
+    def infer(self, tasks: list) -> dict:
+        model_loaded = self._try_load_model()
         obs, _ = self.env.reset(seed=42)
         allocations = []
 
@@ -173,21 +225,23 @@ class AgentTrainer:
                 action, _ = self.model.predict(obs, deterministic=True)
                 action = int(action)
             else:
-                # Greedy fallback: pick least loaded node
                 action = self._greedy_action()
 
             obs, reward, terminated, truncated, info = self.env.step(action)
-
-            node_name = f"Edge-Node-{str(action + 1).zfill(2)}" if action < self.env.num_nodes else "DELAYED"
+            node_name = (
+                f"Edge-Node-{str(action + 1).zfill(2)}"
+                if action < self.env.num_nodes
+                else "DELAYED"
+            )
 
             allocations.append({
-                "task_index":   i,
-                "task_label":   task.get("task_id_label", f"TASK-{str(i+1).zfill(4)}"),
-                "action":       action,
+                "task_index":    i,
+                "task_label":    task.get("task_id_label", f"TASK-{str(i+1).zfill(4)}"),
+                "action":        action,
                 "node_assigned": node_name,
-                "reward":       round(float(reward), 4),
-                "latency_ms":   round(float(info.get("latency", 0)), 2),
-                "status":       "delayed" if action >= self.env.num_nodes else "completed",
+                "reward":        round(float(reward), 4),
+                "latency_ms":    round(float(info.get("latency", 0)), 2),
+                "status":        "delayed" if action >= self.env.num_nodes else "completed",
             })
 
             if terminated or truncated:
@@ -197,9 +251,7 @@ class AgentTrainer:
         return {"allocations": allocations, "summary": summary}
 
     def _try_load_model(self) -> bool:
-        """Try to load a saved model. Returns True if successful."""
         if not os.path.exists(self.model_path):
-            # Try any model for this simulation
             pattern = f"sim{self.simulation_id}_{self.algorithm.lower()}"
             for fname in os.listdir(MODELS_DIR):
                 if fname.startswith(pattern) and fname.endswith(".zip"):
@@ -216,15 +268,13 @@ class AgentTrainer:
             cls = PPO if self.algorithm == "PPO" else DQN
             self.model = cls.load(
                 self.model_path.replace(".zip", ""),
-                env    = self.env,
-                device = "cpu",
+                env=self.env, device="cpu",
             )
             return True
         except Exception:
             return False
 
     def _greedy_action(self) -> int:
-        """Greedy fallback: choose node with lowest CPU utilisation."""
         if not hasattr(self.env, 'node_cpu_used'):
             return 0
         loads = [

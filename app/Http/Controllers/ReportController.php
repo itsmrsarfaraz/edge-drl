@@ -47,8 +47,18 @@ class ReportController extends Controller
         ];
 
         // PPO vs DQN comparison if both exist
-        $ppoRun = $trainingRuns->where('algorithm', 'PPO')->sortByDesc('mean_reward')->first();
-        $dqnRun = $trainingRuns->where('algorithm', 'DQN')->sortByDesc('mean_reward')->first();
+        // PPO vs DQN — find best run of each algorithm across ALL simulations by this user
+        $ppoRun = TrainingRun::whereHas('simulation', fn($q) => $q->where('user_id', Auth::id()))
+            ->where('algorithm', 'PPO')
+            ->where('status', 'completed')
+            ->orderByDesc('mean_reward')
+            ->first();
+
+        $dqnRun = TrainingRun::whereHas('simulation', fn($q) => $q->where('user_id', Auth::id()))
+            ->where('algorithm', 'DQN')
+            ->where('status', 'completed')
+            ->orderByDesc('mean_reward')
+            ->first();
 
         $pdf = Pdf::loadView('reports.pdf', compact(
             'simulation',

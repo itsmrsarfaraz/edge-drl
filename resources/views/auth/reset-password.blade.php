@@ -3,10 +3,8 @@
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
             <div class="mb-8 text-center">
                 <!-- Lock Open Icon to symbolize setting a new password -->
-                <div class="w-12 h-12 rounded-xl bg-primary-500 flex items-center justify-center mx-auto mb-4">
-                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/>
-                    </svg>
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <x-ui.application-logo />
                 </div>
                 <h1 class="text-2xl font-bold text-slate-100">Update Password</h1>
                 <p class="text-sm text-slate-400 mt-1">Enter your new security credentials below</p>

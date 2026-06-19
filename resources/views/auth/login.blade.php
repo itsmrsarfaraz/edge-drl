@@ -2,10 +2,8 @@
     <div class="w-full max-w-md px-4">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
             <div class="mb-8 text-center">
-                <div class="w-12 h-12 rounded-xl bg-primary-500 flex items-center justify-center mx-auto mb-4">
-                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
-                    </svg>
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <x-ui.application-logo />
                 </div>
                 <h1 class="text-2xl font-bold text-slate-100">Edge DRL</h1>
                 <p class="text-sm text-slate-400 mt-1">Sign in to your account</p>

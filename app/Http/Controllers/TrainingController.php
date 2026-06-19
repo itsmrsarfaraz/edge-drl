@@ -70,6 +70,15 @@ class TrainingController extends Controller
             'started_at'          => now(),
         ]);
 
+        // Reset edge node stats to idle before training starts
+        $simulation->edgeNodes()->update([
+            'cpu_used'               => 0.0,
+            'memory_used'            => 0.0,
+            'queue_length'           => 0,
+            'utilization_percentage' => 0.0,
+            'status'                 => 'idle',
+        ]);
+
         // Build node capacity arrays
         $nodes          = $simulation->edgeNodes()->orderBy('id')->get();
         $cpuCapacities  = $nodes->pluck('cpu_capacity')->map(fn($v) => (float) $v)->toArray();
@@ -159,6 +168,7 @@ class TrainingController extends Controller
     {
         $eval = $data['eval_summary'] ?? [];
 
+        // ── Update training run record ─────────────────────────────
         $trainingRun->update([
             'status'              => 'completed',
             'timesteps_completed' => $data['total_timesteps'] ?? $trainingRun->total_timesteps,
@@ -169,7 +179,15 @@ class TrainingController extends Controller
             'completed_at'        => now(),
         ]);
 
-        // Save result metrics
+        // ── Node utilization from Python's result (already written to DB) ──
+        // Re-read fresh from DB so we get the values Python just wrote
+        $simulation->load('edgeNodes');
+        $nodeUtilSnapshot = $this->nodeUtilSnapshot($simulation);
+
+        // ── Also update task statuses based on allocation log ─────
+        $this->updateTaskStatuses($simulation, $eval);
+
+        // ── Save result metrics ────────────────────────────────────
         Result::create([
             'simulation_id'           => $simulation->id,
             'training_run_id'         => $trainingRun->id,
@@ -178,19 +196,65 @@ class TrainingController extends Controller
             'avg_memory_utilization'  => $this->avgNodeMem($simulation),
             'task_success_rate'       => $this->calcSuccessRate($simulation),
             'task_failure_rate'       => $this->calcFailureRate($simulation),
-            'avg_queue_length'        => 0,
+            'avg_queue_length'        => $simulation->edgeNodes->avg('queue_length') ?? 0,
             'total_reward'            => $eval['total_reward']     ?? null,
             'throughput'              => $this->calcThroughput($simulation, $eval),
             'reward_history'          => $eval['reward_history']   ?? [],
             'latency_history'         => $eval['latency_history']  ?? [],
-            'cpu_history'             => [],
+            'cpu_history'             => $this->buildCpuHistory($simulation),
             'queue_history'           => [],
-            'node_utilization'        => $this->nodeUtilSnapshot($simulation),
+            'node_utilization'        => $nodeUtilSnapshot,
         ]);
 
         $simulation->update(['status' => 'completed', 'completed_at' => now()]);
 
         Log::info("Training run #{$trainingRun->id} completed for simulation #{$simulation->id}");
+    }
+
+    private function updateTaskStatuses(Simulation $simulation, array $eval): void
+    {
+        $allocationLog = $eval['allocation_log'] ?? [];
+        if (empty($allocationLog)) return;
+
+        // Mark allocated tasks as completed, delayed ones as delayed
+        $pendingTasks = $simulation->tasks()
+            ->where('status', 'pending')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($allocationLog as $i => $entry) {
+            $task = $pendingTasks[$i] ?? null;
+            if (! $task) continue;
+
+            $status  = $entry['action'] < $simulation->num_edge_nodes ? 'completed' : 'delayed';
+            $latency = $entry['latency'] ?? null;
+
+            // Find which edge node was assigned
+            $nodeId = null;
+            if ($status === 'completed') {
+                $nodeIndex = $entry['action'];
+                $node = $simulation->edgeNodes->sortBy('name')->values()->get($nodeIndex);
+                $nodeId = $node?->id;
+            }
+
+            $task->update([
+                'status'       => $status,
+                'latency'      => $latency,
+                'edge_node_id' => $nodeId,
+                'assigned_at'  => now(),
+                'completed_at' => $status === 'completed' ? now() : null,
+            ]);
+        }
+    }
+
+    private function buildCpuHistory(Simulation $simulation): array
+    {
+        return $simulation->edgeNodes
+            ->map(fn($n) => [
+                'node'    => $n->name,
+                'cpu_pct' => $n->cpu_usage_percent,
+            ])
+            ->toArray();
     }
 
     // ── Helpers ────────────────────────────────────────────────
@@ -206,21 +270,22 @@ class TrainingController extends Controller
 
     private function avgNodeCpu(Simulation $simulation): float
     {
+        $nodes = $simulation->edgeNodes;
+        if ($nodes->isEmpty()) return 0.0;
         return round(
-            $simulation->edgeNodes()->avg('utilization_percentage') ?? 0.0,
+            $nodes->avg(fn($n) => $n->cpu_usage_percent) ?? 0.0,
             2
         );
     }
 
     private function avgNodeMem(Simulation $simulation): float
     {
-        $nodes = $simulation->edgeNodes()->get();
+        $nodes = $simulation->edgeNodes;
         if ($nodes->isEmpty()) return 0.0;
-        $avg = $nodes->avg(fn($n) => $n->memory_capacity > 0
-            ? ($n->memory_used / $n->memory_capacity) * 100
-            : 0
+        return round(
+            $nodes->avg(fn($n) => $n->memory_usage_percent) ?? 0.0,
+            2
         );
-        return round($avg, 2);
     }
 
     private function calcSuccessRate(Simulation $simulation): float
@@ -233,7 +298,7 @@ class TrainingController extends Controller
     private function calcFailureRate(Simulation $simulation): float
     {
         $total  = $simulation->tasks()->count();
-        $failed = $simulation->tasks()->where('status', 'failed')->count();
+        $failed = $simulation->tasks()->whereIn('status', ['failed', 'delayed'])->count();
         return $total > 0 ? round($failed / $total * 100, 2) : 0.0;
     }
 
