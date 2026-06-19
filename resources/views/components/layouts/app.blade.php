@@ -17,6 +17,19 @@
         <div class="flex flex-col flex-1 min-h-screen overflow-hidden">
             @include('partials.topbar')
             <main class="flex-1 overflow-y-auto bg-slate-950 p-6">
+                {{-- Global flash messages --}}
+                @if(session('success'))
+                    <x-ui.alert type="success" class="mb-5">{{ session('success') }}</x-ui.alert>
+                @endif
+                @if(session('error'))
+                    <x-ui.alert type="error" class="mb-5">{{ session('error') }}</x-ui.alert>
+                @endif
+                @if(session('warning'))
+                    <x-ui.alert type="warning" class="mb-5">{{ session('warning') }}</x-ui.alert>
+                @endif
+                @if(session('info'))
+                    <x-ui.alert type="info" class="mb-5">{{ session('info') }}</x-ui.alert>
+                @endif
                 {{ $slot }}
             </main>
         </div>

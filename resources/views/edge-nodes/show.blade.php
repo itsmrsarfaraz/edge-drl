@@ -1,5 +1,10 @@
 <x-layouts.app :title="$edgeNode->name">
-
+    <x-ui.breadcrumb :items="[
+        ['label' => 'Simulations',  'route' => route('simulations.index')],
+        ['label' => $simulation->name, 'route' => route('simulations.show', $simulation)],
+        ['label' => 'Edge Nodes',   'route' => route('simulations.nodes.index', $simulation)],
+        ['label' => $edgeNode->name],
+    ]"/>
     <x-ui.page-header
         :title="$edgeNode->name"
         :description="'Node in simulation: ' . $simulation->name">

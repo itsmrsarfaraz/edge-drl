@@ -1,5 +1,9 @@
 <x-layouts.app :title="$simulation->name . ' — Tasks'">
-
+    <x-ui.breadcrumb :items="[
+        ['label' => 'Simulations',  'route' => route('simulations.index')],
+        ['label' => $simulation->name, 'route' => route('simulations.show', $simulation)],
+        ['label' => 'IoT Tasks'],
+    ]"/>
     <x-ui.page-header
         :title="$simulation->name"
         description="IoT task workload for this simulation.">

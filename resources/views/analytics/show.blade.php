@@ -1,5 +1,9 @@
 <x-layouts.app :title="$simulation->name . ' — Analytics'">
-
+    <x-ui.breadcrumb :items="[
+        ['label' => 'Simulations',  'route' => route('simulations.index')],
+        ['label' => $simulation->name, 'route' => route('simulations.show', $simulation)],
+        ['label' => 'Analytics'],
+    ]"/>
     <x-ui.page-header
         :title="$simulation->name"
         description="DRL training analytics and resource allocation performance.">

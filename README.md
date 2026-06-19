@@ -1,58 +1,132 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+cat > README.md << 'MD'
+# Edge DRL — Resource Allocation in Edge Computing using Deep Reinforcement Learning
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A web-based simulation platform for Final Year Project (FYP) demonstrating how Deep Reinforcement Learning can perform resource allocation in edge computing environments. Runs entirely locally — no cloud, no GPU, no IoT hardware required.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Tech Stack
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+| Layer     | Technology                                |
+|-----------|-------------------------------------------|
+| Frontend  | Laravel 13 · Blade · Tailwind CSS v4 · Alpine.js · Chart.js |
+| Backend   | Laravel 13 · PHP 8.5 · MySQL             |
+| AI Engine | Python 3.14 · FastAPI · Stable-Baselines3 · Gymnasium · PyTorch CPU |
+| Dev Env   | WSL Ubuntu · No Docker required           |
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## Requirements
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+- WSL Ubuntu
+- PHP 8.5
+- Composer 2.x
+- Node.js 18+ & npm
+- MySQL 8.x
+- Python 3.10+
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+## Setup
 
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+### 1. Clone & install
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone https://github.com/itsmrsarfaraz/edge-drl.git
+cd edge-drl
+composer install
+npm install
+cp .env.example .env
+php artisan key:generate
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### 2. Configure `.env`
 
-## Contributing
+```env
+DB_DATABASE=edge_drl
+DB_USERNAME=root
+DB_PASSWORD=your_password
+PYTHON_PATH=/home/yourname/projects/edge-drl/python/venv/bin/python3
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### 3. Database
 
-## Code of Conduct
+```bash
+mysql -u root -p -e "CREATE DATABASE edge_drl CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+php artisan migrate
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### 4. Python environment
 
-## Security Vulnerabilities
+```bash
+cd python
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### 5. Build frontend
 
-## License
+```bash
+cd ..
+npm run build
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+---
+
+## Running the Project
+
+Open **two terminals**:
+
+**Terminal 1 — Laravel:**
+```bash
+php artisan serve
+# → http://localhost:8000
+```
+
+**Terminal 2 — FastAPI AI Engine:**
+```bash
+cd python
+source venv/bin/activate
+bash api/start.sh
+# → http://127.0.0.1:8001
+```
+
+---
+
+## Project Modules
+
+| Module | Description |
+|--------|-------------|
+| Authentication | Login · Register · Profile |
+| Simulations | Create · Configure · Manage |
+| Edge Nodes | Auto-provisioned · Resource bars · Status |
+| IoT Tasks | Python-generated · Weighted priorities |
+| DRL Training | PPO & DQN via Stable-Baselines3 · Live progress |
+| Analytics | 5 Chart.js charts · Reward/latency/utilization |
+| Reports | Downloadable PDF · PPO vs DQN comparison |
+
+---
+
+## Workflow
+
+1. Register an account
+2. Create a simulation (choose nodes, devices, tasks, algorithm)
+3. Go to simulation → click **Generate Tasks**
+4. Click **Run Simulation** → watch live training progress
+5. View **Analytics** → explore charts
+6. Download **PDF Report** for FYP defense
+
+---
+
+## Architecture
+
+Browser (Blade + Alpine.js + Chart.js)
+↕ HTTP
+Laravel 13 (Controllers · Models · Routes)
+↕ MySQL (simulations · tasks · results · training_runs)
+↕ HTTP (PythonAiService)
+FastAPI (Python AI Engine)
+├── EdgeComputingEnv (Gymnasium)
+├── PPO Trainer (Stable-Baselines3)
+└── DQN Trainer (Stable-Baselines3)

@@ -24,9 +24,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return view('dashboard.index');
     })->name('dashboard');
 
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    // Profile
+    Route::prefix('profile')->name('profile.')->group(function () {
+        Route::get('/',                [ProfileController::class, 'show'])->name('show');
+        Route::patch('/info',          [ProfileController::class, 'updateInfo'])->name('update-info');
+        Route::patch('/password',      [ProfileController::class, 'updatePassword'])->name('update-password');
+    });
 
     // Simulations
     Route::resource('simulations', SimulationController::class)

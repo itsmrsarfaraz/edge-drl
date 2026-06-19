@@ -130,10 +130,10 @@
             <table class="w-full text-sm">
                 <thead>
                     <tr class="border-b border-slate-700">
-                        @foreach(['Run','Algorithm','Total Timesteps','Mean Reward','Final Reward','Avg Latency','Completed']) as $col)
-                        <th class="text-left text-xs font-medium text-slate-400 uppercase tracking-wider py-2 pr-4">
-                            {{ $col }}
-                        </th>
+                        @foreach(['Run','Algorithm','Total Timesteps','Mean Reward','Final Reward','Avg Latency','Completed'] as $col)
+                            <th class="text-left text-xs font-medium text-slate-400 uppercase tracking-wider py-2 pr-4">
+                                {{ $col }}
+                            </th>
                         @endforeach
                     </tr>
                 </thead>

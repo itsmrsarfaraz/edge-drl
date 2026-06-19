@@ -1,4 +1,9 @@
 <x-layouts.app title="New Simulation">
+    <x-ui.breadcrumb :items="[
+        ['label' => 'Dashboard',    'route' => route('dashboard')],
+        ['label' => 'Simulations',  'route' => route('simulations.index')],
+        ['label' => 'New Simulation'],
+    ]"/>
     <x-ui.page-header
         title="New Simulation"
         description="Configure your edge computing simulation environment.">

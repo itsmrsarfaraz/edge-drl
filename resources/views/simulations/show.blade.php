@@ -1,4 +1,9 @@
 <x-layouts.app title="{{ $simulation->name }}">
+    <x-ui.breadcrumb :items="[
+        ['label' => 'Dashboard',    'route' => route('dashboard')],
+        ['label' => 'Simulations',  'route' => route('simulations.index')],
+        ['label' => $simulation->name],
+    ]"/>
     <x-ui.page-header
         :title="$simulation->name"
         :description="$simulation->description ?? 'No description provided.'">

@@ -1,5 +1,9 @@
 <x-layouts.app :title="$simulation->name . ' — Edge Nodes'">
-
+    <x-ui.breadcrumb :items="[
+        ['label' => 'Simulations',  'route' => route('simulations.index')],
+        ['label' => $simulation->name, 'route' => route('simulations.show', $simulation)],
+        ['label' => 'Edge Nodes'],
+    ]"/>
     <x-ui.page-header
         :title="$simulation->name"
         description="Edge nodes provisioned for this simulation.">

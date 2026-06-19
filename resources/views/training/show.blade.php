@@ -1,5 +1,9 @@
 <x-layouts.app :title="$simulation->name . ' — Training'">
-
+    <x-ui.breadcrumb :items="[
+        ['label' => 'Simulations',  'route' => route('simulations.index')],
+        ['label' => $simulation->name, 'route' => route('simulations.show', $simulation)],
+        ['label' => 'Training'],
+    ]"/>
     <x-ui.page-header
         :title="$simulation->name"
         description="Run DRL training and monitor progress in real time.">
