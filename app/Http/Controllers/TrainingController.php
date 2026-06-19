@@ -196,47 +196,52 @@ class TrainingController extends Controller
     {
         $eval = $data['eval_summary'] ?? [];
 
-        // ── Update training run record ─────────────────────────────
         $trainingRun->update([
             'status'              => 'completed',
-            'timesteps_completed' => $data['total_timesteps'] ?? $trainingRun->total_timesteps,
-            'final_reward'        => $data['final_reward']    ?? null,
-            'mean_reward'         => $data['mean_reward']     ?? null,
-            'episodes'            => $data['episodes']        ?? 1,
-            'model_path'          => $data['model_path']      ?? null,
+            'timesteps_completed' => $data['total_timesteps']  ?? $trainingRun->total_timesteps,
+            'final_reward'        => $data['final_reward']     ?? null,
+            'mean_reward'         => $data['eval_mean_reward'] ?? $data['mean_reward'] ?? null,
+            'episodes'            => $data['eval_episodes']    ?? 1,
+            'model_path'          => $data['model_path']       ?? null,
             'completed_at'        => now(),
+
+            // Training curve (learning curve)
+            'training_curve'      => $data['training_curve']    ?? null,
+            'train_mean_reward'   => $data['train_mean_reward'] ?? null,
+
+            // Evaluation metrics (test performance)
+            'eval_mean_reward'    => $data['eval_mean_reward']  ?? null,
+            'eval_std_reward'     => $data['eval_std_reward']   ?? null,
+            'eval_min_reward'     => $data['eval_min_reward']   ?? null,
+            'eval_max_reward'     => $data['eval_max_reward']   ?? null,
+            'eval_success_rate'   => $data['eval_success_rate'] ?? null,
+            'eval_episodes'       => $data['eval_episodes']     ?? null,
+            'eval_all_rewards'    => $data['eval_all_rewards'] ?? ($data['eval_results']['all_rewards'] ?? null),
         ]);
 
-        // ── Node utilization from Python's result (already written to DB) ──
-        // Re-read fresh from DB so we get the values Python just wrote
         $simulation->load('edgeNodes');
         $nodeUtilSnapshot = $this->nodeUtilSnapshot($simulation);
-
-        // ── Also update task statuses based on allocation log ─────
         $this->updateTaskStatuses($simulation, $eval);
 
-        // ── Save result metrics ────────────────────────────────────
         Result::create([
-            'simulation_id'           => $simulation->id,
-            'training_run_id'         => $trainingRun->id,
-            'avg_latency'             => $eval['mean_latency_ms']  ?? null,
-            'avg_cpu_utilization'     => $this->avgNodeCpu($simulation),
-            'avg_memory_utilization'  => $this->avgNodeMem($simulation),
-            'task_success_rate'       => $this->calcSuccessRate($simulation),
-            'task_failure_rate'       => $this->calcFailureRate($simulation),
-            'avg_queue_length'        => $simulation->edgeNodes->avg('queue_length') ?? 0,
-            'total_reward'            => $eval['total_reward']     ?? null,
-            'throughput'              => $this->calcThroughput($simulation, $eval),
-            'reward_history'          => $eval['reward_history']   ?? [],
-            'latency_history'         => $eval['latency_history']  ?? [],
-            'cpu_history'             => $this->buildCpuHistory($simulation),
-            'queue_history'           => [],
-            'node_utilization'        => $nodeUtilSnapshot,
+            'simulation_id'          => $simulation->id,
+            'training_run_id'        => $trainingRun->id,
+            'avg_latency'            => $eval['mean_latency_ms']  ?? null,
+            'avg_cpu_utilization'    => $this->avgNodeCpu($simulation),
+            'avg_memory_utilization' => $this->avgNodeMem($simulation),
+            'task_success_rate'      => $this->calcSuccessRate($simulation),
+            'task_failure_rate'      => $this->calcFailureRate($simulation),
+            'avg_queue_length'       => $simulation->edgeNodes->avg('queue_length') ?? 0,
+            'total_reward'           => $eval['total_reward']    ?? null,
+            'throughput'             => $this->calcThroughput($simulation, $eval),
+            'reward_history'         => $eval['reward_history']  ?? [],
+            'latency_history'        => $eval['latency_history'] ?? [],
+            'cpu_history'            => $this->buildCpuHistory($simulation),
+            'queue_history'          => [],
+            'node_utilization'       => $nodeUtilSnapshot,
         ]);
 
         $simulation->update(['status' => 'completed', 'completed_at' => now()]);
-
-        Log::info("Training run #{$trainingRun->id} completed for simulation #{$simulation->id}");
     }
 
     private function updateTaskStatuses(Simulation $simulation, array $eval): void

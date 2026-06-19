@@ -10,6 +10,7 @@ use App\Http\Controllers\SimulationCloneController;
 use App\Http\Controllers\SimulationController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TrainingController;
+use App\Http\Controllers\TrainingMetricsController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn() => redirect()->route('login'));
@@ -80,6 +81,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('simulations/{simulation}/infer', [TrainingController::class, 'infer'])
     ->name('simulations.infer');
+
+    Route::prefix('simulations/{simulation}/training/{trainingRun}/metrics')
+    ->name('simulations.training.metrics.')
+    ->group(function () {
+        Route::get('/',           [TrainingMetricsController::class, 'show'])->name('show');
+        Route::get('/chart-data', [TrainingMetricsController::class, 'chartData'])->name('chart-data');
+    });
 });
 
 require __DIR__.'/auth.php';

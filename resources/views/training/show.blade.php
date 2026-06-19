@@ -77,6 +77,35 @@
                         <span x-text="isRunning ? 'Training in Progress…' : 'Run Simulation'"></span>
                     </button>
 
+                    @forelse($simulation->trainingRuns as $run)
+                    <div class="flex items-center justify-between py-2.5 border-b border-slate-800 last:border-0">
+                        <div>
+                            <p class="text-sm font-medium text-slate-300">
+                                {{ $run->algorithm }} #{{ $run->id }}
+                            </p>
+                            <p class="text-xs text-slate-500">
+                                {{ $run->created_at->diffForHumans() }}
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            @if($run->mean_reward !== null)
+                                <span class="text-xs text-slate-400 font-mono">
+                                    R̄ {{ round($run->mean_reward, 3) }}
+                                </span>
+                            @endif
+                            <x-ui.badge color="{{ $run->status === 'completed' ? 'emerald' : ($run->status === 'running' ? 'primary' : ($run->status === 'failed' ? 'red' : 'slate')) }}">
+                                {{ $run->status }}
+                            </x-ui.badge>
+                            @if($run->status === 'completed')
+                            <a href="{{ route('simulations.training.metrics.show', [$simulation, $run]) }}"
+                               class="text-xs text-primary-400 hover:text-primary-300 transition-colors whitespace-nowrap">
+                                Metrics →
+                            </a>
+                            @endif
+                        </div>
+                    </div>
+                    @empty
+
                     {{-- Inference Button --}}
                     @if($simulation->trainingRuns()->where('status','completed')->exists())
                     <div x-data="inferencePanel({{ $simulation->id }}, '{{ csrf_token() }}')"
