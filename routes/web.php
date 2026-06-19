@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AiStatusController;
 use App\Http\Controllers\EdgeNodeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SimulationController;
@@ -7,6 +8,12 @@ use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn() => redirect()->route('login'));
+
+// AI Engine — no auth needed (health ping from topbar JS)
+Route::prefix('ai')->name('ai.')->group(function () {
+    Route::get('/health',   [AiStatusController::class, 'health'])->name('health');
+    Route::get('/env-info', [AiStatusController::class, 'envInfo'])->name('env-info');
+});
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
