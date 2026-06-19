@@ -14,6 +14,11 @@
                    class="text-sm text-slate-400 hover:text-slate-200 transition-colors">
                     ← Simulation
                 </a>
+                <a href="{{ route('simulations.reports.index', $simulation) }}"
+                   class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700
+                          text-slate-300 text-xs font-medium rounded-lg transition-colors">
+                    PDF Report
+                </a>
             </div>
         </x-slot:action>
     </x-ui.page-header>
@@ -134,10 +139,8 @@
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="border-b border-slate-700 bg-slate-800/40">
-                                @foreach(['Run ID','Algorithm','Mean Reward','Final Reward','Timesteps','Completed'] as $col)
-                                <th class="text-left text-xs font-medium text-slate-400 uppercase tracking-wider px-5 py-3">
-                                    {{ $col }}
-                                </th>
+                                @foreach(['Run ID', 'Algorithm', 'Mean Reward'] as $col)
+                                    <th>{{ $col }}</th>
                                 @endforeach
                             </tr>
                         </thead>

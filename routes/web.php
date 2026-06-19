@@ -4,6 +4,7 @@ use App\Http\Controllers\AiStatusController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\EdgeNodeController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SimulationController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TrainingController;
@@ -56,6 +57,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('simulations/{simulation}/analytics')->name('simulations.analytics.')->group(function () {
         Route::get('/',          [AnalyticsController::class, 'show'])->name('show');
         Route::get('/chart-data',[AnalyticsController::class, 'chartData'])->name('chart-data');
+    });
+
+    // Reports
+    Route::prefix('simulations/{simulation}/reports')->name('simulations.reports.')->group(function () {
+        Route::get('/',         [ReportController::class, 'index'])->name('index');
+        Route::get('/download', [ReportController::class, 'download'])->name('download');
     });
 });
 

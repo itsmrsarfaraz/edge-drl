@@ -67,6 +67,18 @@
             </a>
             @endif
 
+            {{-- Reports Link --}}
+            <a href="{{ route('simulations.reports.index', $simulation) }}"
+               class="flex items-center justify-center gap-2 w-full py-2.5 px-4 mt-2
+                      bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium
+                      rounded-xl transition-colors">
+                <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Download Report
+            </a>
+
             <div class="bg-slate-900 border border-red-500/20 rounded-xl p-5">
                 <h2 class="text-sm font-semibold text-red-400 uppercase tracking-wider mb-3">Danger Zone</h2>
                 <form method="POST" action="{{ route('simulations.destroy', $simulation) }}"
