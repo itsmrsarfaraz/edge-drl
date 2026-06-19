@@ -16,21 +16,16 @@ from datetime import datetime, timezone
 
 import numpy as np
 
-# ── MySQL connector (pure Python, no C extensions needed) ──────
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from utils.config import db_config
+
 try:
     import mysql.connector
 except ImportError:
     print(json.dumps({"error": "mysql-connector-python not installed. Run: pip3 install mysql-connector-python"}))
     sys.exit(1)
 
-# ── Config ─────────────────────────────────────────────────────
-DB_CONFIG = {
-    "host":     os.getenv("DB_HOST",     "127.0.0.1"),
-    "port":     int(os.getenv("DB_PORT", "3306")),
-    "user":     os.getenv("DB_USERNAME", "root"),
-    "password": os.getenv("DB_PASSWORD", ""),
-    "database": os.getenv("DB_DATABASE", "edge_drl"),
-}
+DB_CONFIG = db_config()
 
 # ── Priority distribution (weighted) ───────────────────────────
 PRIORITY_WEIGHTS = {
