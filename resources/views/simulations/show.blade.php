@@ -53,6 +53,20 @@
                 Run Simulation
             </a>
 
+            {{-- Analytics Link (only if results exist) --}}
+            @if($simulation->latestResult)
+            <a href="{{ route('simulations.analytics.show', $simulation) }}"
+               class="flex items-center justify-center gap-2 w-full py-2.5 px-4 mt-2
+                      bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium
+                      rounded-xl transition-colors">
+                <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                View Analytics
+            </a>
+            @endif
+
             <div class="bg-slate-900 border border-red-500/20 rounded-xl p-5">
                 <h2 class="text-sm font-semibold text-red-400 uppercase tracking-wider mb-3">Danger Zone</h2>
                 <form method="POST" action="{{ route('simulations.destroy', $simulation) }}"
@@ -163,6 +177,10 @@
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider">Training Runs</h2>
+                    <a href="{{ route('simulations.training.show', $simulation) }}"
+                       class="text-xs text-primary-400 hover:text-primary-300 transition-colors">
+                        Train →
+                    </a>
                 </div>
                 @if($simulation->trainingRuns->isEmpty())
                     <p class="text-sm text-slate-500 py-4 text-center">

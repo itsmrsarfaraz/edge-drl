@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AiStatusController;
+use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\EdgeNodeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SimulationController;
@@ -49,6 +50,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/',                              [TrainingController::class, 'show'])->name('show');
         Route::post('/start',                        [TrainingController::class, 'start'])->name('start');
         Route::get('/{trainingRun}/status',          [TrainingController::class, 'status'])->name('status');
+    });
+
+    // Analytics - Dashboard
+    Route::prefix('simulations/{simulation}/analytics')->name('simulations.analytics.')->group(function () {
+        Route::get('/',          [AnalyticsController::class, 'show'])->name('show');
+        Route::get('/chart-data',[AnalyticsController::class, 'chartData'])->name('chart-data');
     });
 });
 
