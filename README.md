@@ -1,4 +1,3 @@
-cat > README.md << 'MD'
 # Edge DRL — Resource Allocation in Edge Computing using Deep Reinforcement Learning
 
 A web-based simulation platform for Final Year Project (FYP) demonstrating how Deep Reinforcement Learning can perform resource allocation in edge computing environments. Runs entirely locally — no cloud, no GPU, no IoT hardware required.
@@ -119,14 +118,49 @@ bash api/start.sh
 
 ---
 
-## Architecture
+## System Architecture
 
-Browser (Blade + Alpine.js + Chart.js)
-↕ HTTP
-Laravel 13 (Controllers · Models · Routes)
-↕ MySQL (simulations · tasks · results · training_runs)
-↕ HTTP (PythonAiService)
-FastAPI (Python AI Engine)
-├── EdgeComputingEnv (Gymnasium)
-├── PPO Trainer (Stable-Baselines3)
-└── DQN Trainer (Stable-Baselines3)
+The platform splits heavy deep reinforcement learning workloads away from the web interface using an asynchronous dual-engine design. Laravel handles state, orchestration, and reporting, while FastAPI hosts the gym environment and execution models over a local HTTP bridging loop.
+
+
+
+```text
+┌────────────────────────────────────────────────────────┐
+│                    CLIENT BROWSER                      │
+│   Tailwind CSS v4  │  Alpine.js Reactive UI  │ Chart.js │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            │ HTTP / REST
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│                 LARAVEL CORE ENGINE                    │
+│   Controllers  │  Data Models  │  PythonAiService API   │
+└───────────┬───────────────────────────────────▲────────┘
+            │                                   │
+   Eloquent │ Read / Write                      │ HTTP Client Loop
+            ▼                                   │ (Payloads & State)
+┌───────────────────────┐                       │
+│     MYSQL DATABASE    │                       │
+│  • simulations        │                       │
+│  • training_runs      │                       │
+│  • results            │                       │
+│  • edge_nodes / tasks │                       │
+└───────────────────────┘                       ▼
+┌────────────────────────────────────────────────────────┐
+│               FASTAPI PYTHON AI ENGINE                 │
+│        Asynchronous Event Router · Worker Loops        │
+│                                                        │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │            Gymnasium Custom Wrapper              │  │
+│  │           [ EdgeComputingEnv State ]             │  │
+│  └────────────────────────┬─────────────────────────┘  │
+│                           │                            │
+│                           ▼                            │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │               Stable-Baselines3                  │  │
+│  │       ┌──────────────────┬──────────────────┐    │  │
+│  │       │   PPO Trainer    │   DQN Trainer    │    │  │
+│  │       └──────────────────┴──────────────────┘    │  │
+│  │               PyTorch Core Execution             │  │
+│  └──────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────┘
