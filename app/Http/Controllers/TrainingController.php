@@ -34,64 +34,53 @@ class TrainingController extends Controller
     {
         $this->authorizeSimulation($simulation);
 
-        // Check AI engine
         if (! $this->ai->isOnline()) {
-            return response()->json([
-                'error' => 'AI Engine is offline. Start FastAPI first: cd python && bash api/start.sh'
-            ], 503);
+            return response()->json(['error' => 'AI Engine is offline.'], 503);
         }
 
-        // Check tasks exist
         $taskCount = $simulation->tasks()->count();
         if ($taskCount === 0) {
-            return response()->json([
-                'error' => 'No tasks generated. Generate tasks before running training.'
-            ], 422);
+            return response()->json(['error' => 'No tasks generated.'], 422);
         }
 
-        // Check no training already running
-        $running = $simulation->trainingRuns()
-            ->where('status', 'running')
-            ->exists();
-
+        $running = $simulation->trainingRuns()->where('status', 'running')->exists();
         if ($running) {
-            return response()->json([
-                'error' => 'A training run is already in progress for this simulation.'
-            ], 409);
+            return response()->json(['error' => 'Training already running.'], 409);
         }
 
-        // Create training run record
+        // ── Accept timesteps from request (validated) ──────────────
+        $requestedTimesteps = request()->input('timesteps');
+        $allowedTimesteps   = [10000, 25000, 50000];
+        $totalTimesteps     = in_array((int) $requestedTimesteps, $allowedTimesteps)
+            ? (int) $requestedTimesteps
+            : $this->resolveTimesteps($taskCount);
+
         $trainingRun = TrainingRun::create([
             'simulation_id'       => $simulation->id,
             'algorithm'           => $simulation->algorithm,
-            'total_timesteps'     => $this->resolveTimesteps($taskCount),
+            'total_timesteps'     => $totalTimesteps,
             'timesteps_completed' => 0,
             'status'              => 'running',
             'started_at'          => now(),
         ]);
 
-        // Reset edge node stats to idle before training starts
+        // Reset node stats
         $simulation->edgeNodes()->update([
-            'cpu_used'               => 0.0,
-            'memory_used'            => 0.0,
-            'queue_length'           => 0,
-            'utilization_percentage' => 0.0,
-            'status'                 => 'idle',
+            'cpu_used' => 0.0, 'memory_used' => 0.0,
+            'queue_length' => 0, 'utilization_percentage' => 0.0, 'status' => 'idle',
         ]);
 
-        // Build node capacity arrays
-        $nodes          = $simulation->edgeNodes()->orderBy('id')->get();
-        $cpuCapacities  = $nodes->pluck('cpu_capacity')->map(fn($v) => (float) $v)->toArray();
-        $memCapacities  = $nodes->pluck('memory_capacity')->map(fn($v) => (float) $v)->toArray();
+        $nodes         = $simulation->edgeNodes()->orderBy('id')->get();
+        $cpuCapacities = $nodes->pluck('cpu_capacity')->map(fn($v) => (float) $v)->toArray();
+        $memCapacities = $nodes->pluck('memory_capacity')->map(fn($v) => (float) $v)->toArray();
 
-        // Call FastAPI
         $response = $this->ai->startTraining([
             'simulation_id'   => $simulation->id,
             'training_run_id' => $trainingRun->id,
             'algorithm'       => $simulation->algorithm,
             'num_nodes'       => $simulation->num_edge_nodes,
             'num_tasks'       => min($taskCount, 200),
-            'total_timesteps' => $trainingRun->total_timesteps,
+            'total_timesteps' => $totalTimesteps,
             'cpu_capacities'  => $cpuCapacities,
             'mem_capacities'  => $memCapacities,
         ]);
@@ -101,17 +90,56 @@ class TrainingController extends Controller
             return response()->json(['error' => $response['error']], 500);
         }
 
-        // Mark simulation as running
         $simulation->update(['status' => 'running', 'started_at' => now()]);
 
         return response()->json([
             'training_run_id' => $trainingRun->id,
             'message'         => 'Training started',
             'algorithm'       => $simulation->algorithm,
-            'total_timesteps' => $trainingRun->total_timesteps,
+            'total_timesteps' => $totalTimesteps,
         ]);
     }
 
+    public function infer(Simulation $simulation): JsonResponse
+    {
+        $this->authorizeSimulation($simulation);
+
+        if (! $this->ai->isOnline()) {
+            return response()->json(['error' => 'AI Engine offline.'], 503);
+        }
+
+        $tasks = $simulation->tasks()
+            ->where('status', 'pending')
+            ->take(50)
+            ->get()
+            ->map(fn($t) => [
+                'task_id_label'      => $t->task_id_label,
+                'priority'           => $t->priority,
+                'cpu_requirement'    => $t->cpu_requirement,
+                'memory_requirement' => $t->memory_requirement,
+                'deadline'           => $t->deadline,
+            ])
+            ->toArray();
+
+        if (empty($tasks)) {
+            return response()->json(['error' => 'No pending tasks to allocate.'], 422);
+        }
+
+        $nodes         = $simulation->edgeNodes()->orderBy('id')->get();
+        $cpuCapacities = $nodes->pluck('cpu_capacity')->map(fn($v) => (float) $v)->toArray();
+        $memCapacities = $nodes->pluck('memory_capacity')->map(fn($v) => (float) $v)->toArray();
+
+        $result = $this->ai->runInference([
+            'simulation_id'  => $simulation->id,
+            'algorithm'      => $simulation->algorithm,
+            'num_nodes'      => $simulation->num_edge_nodes,
+            'tasks'          => $tasks,
+            'cpu_capacities' => $cpuCapacities,
+            'mem_capacities' => $memCapacities,
+        ]);
+
+        return response()->json($result);
+    }
     // ── Poll training status ───────────────────────────────────
 
     public function status(Simulation $simulation, TrainingRun $trainingRun): JsonResponse

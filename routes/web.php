@@ -2,9 +2,11 @@
 
 use App\Http\Controllers\AiStatusController;
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\ComparisonController;
 use App\Http\Controllers\EdgeNodeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SimulationCloneController;
 use App\Http\Controllers\SimulationController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TrainingController;
@@ -67,6 +69,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/',         [ReportController::class, 'index'])->name('index');
         Route::get('/download', [ReportController::class, 'download'])->name('download');
     });
+
+    Route::post('simulations/{simulation}/clone', [SimulationCloneController::class, 'clone'])
+    ->name('simulations.clone');
+
+    Route::prefix('comparison')->name('comparison.')->group(function () {
+        Route::get('/',           [ComparisonController::class, 'index'])->name('index');
+        Route::get('/chart-data', [ComparisonController::class, 'chartData'])->name('chart-data');
+    });
+
+    Route::post('simulations/{simulation}/infer', [TrainingController::class, 'infer'])
+    ->name('simulations.infer');
 });
 
 require __DIR__.'/auth.php';

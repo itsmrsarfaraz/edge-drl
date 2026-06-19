@@ -77,6 +77,102 @@
                         <span x-text="isRunning ? 'Training in Progress…' : 'Run Simulation'"></span>
                     </button>
 
+                    {{-- Inference Button --}}
+                    @if($simulation->trainingRuns()->where('status','completed')->exists())
+                    <div x-data="inferencePanel({{ $simulation->id }}, '{{ csrf_token() }}')"
+                         class="mt-4 pt-4 border-t border-slate-800">
+                        <button @click="runInfer()"
+                                :disabled="inferring"
+                                :class="inferring ? 'opacity-50 cursor-not-allowed' : 'hover:bg-emerald-500'"
+                                class="w-full py-2.5 px-4 bg-emerald-600 text-white text-sm font-semibold
+                                       rounded-xl transition-all flex items-center justify-center gap-2">
+                            <template x-if="!inferring">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                            </template>
+                            <template x-if="inferring">
+                                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10"
+                                            stroke="currentColor" stroke-width="4"/>
+                                    <path class="opacity-75" fill="currentColor"
+                                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                </svg>
+                            </template>
+                            <span x-text="inferring ? 'Allocating…' : 'Run Inference (Use Trained Model)'"></span>
+                        </button>
+                        <p class="text-xs text-slate-500 mt-2 text-center">
+                            Allocates pending tasks using your trained {{ $simulation->algorithm }} model
+                        </p>
+
+                        {{-- Inference Results --}}
+                        <div x-show="allocations.length > 0" x-cloak class="mt-4">
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                                Allocation Results
+                                (<span x-text="allocations.length"></span> tasks)
+                            </p>
+                            <div class="max-h-48 overflow-y-auto space-y-1">
+                                <template x-for="(a, i) in allocations" :key="i">
+                                    <div class="flex items-center justify-between bg-slate-800/60 rounded px-3 py-1.5 text-xs">
+                                        <span class="font-mono text-slate-300" x-text="a.task_label"></span>
+                                        <span :class="a.status === 'completed' ? 'text-emerald-400' : 'text-amber-400'"
+                                              x-text="a.node_assigned"></span>
+                                        <span class="text-slate-500 font-mono"
+                                              x-text="a.latency_ms.toFixed(0) + ' ms'"></span>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+                                <div class="bg-slate-800/60 rounded-lg p-2 text-center">
+                                    <p class="font-bold text-emerald-400"
+                                       x-text="allocations.filter(a=>a.status==='completed').length"></p>
+                                    <p class="text-slate-500">Allocated</p>
+                                </div>
+                                <div class="bg-slate-800/60 rounded-lg p-2 text-center">
+                                    <p class="font-bold text-amber-400"
+                                       x-text="allocations.filter(a=>a.status==='delayed').length"></p>
+                                    <p class="text-slate-500">Delayed</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div x-show="inferError" x-cloak class="mt-3">
+                            <x-ui.alert type="error" x-text="inferError"></x-ui.alert>
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- Timestep Selector --}}
+                    <div class="mb-4">
+                        <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                            Training Depth
+                        </label>
+                        <div class="grid grid-cols-3 gap-2">
+                            @foreach([
+                                ['10000',  'Quick',    '~1 min',  'Good for testing'],
+                                ['25000',  'Standard', '~3 min',  'Balanced quality'],
+                                ['50000',  'Deep',     '~7 min',  'Best results'],
+                            ] as [$val, $label, $time, $desc])
+                            <label class="cursor-pointer">
+                                <input type="radio" name="timesteps" value="{{ $val }}"
+                                       x-model="selectedTimesteps"
+                                       class="sr-only">
+                                <div :class="selectedTimesteps === '{{ $val }}'
+                                        ? 'border-primary-500 bg-primary-500/10 text-primary-400'
+                                        : 'border-slate-700 text-slate-400 hover:border-slate-600'"
+                                     class="border rounded-lg p-2.5 text-center transition-all">
+                                    <p class="text-xs font-bold">{{ $label }}</p>
+                                    <p class="text-xs opacity-70">{{ $time }}</p>
+                                </div>
+                            </label>
+                            @endforeach
+                        </div>
+                        <p class="text-xs text-slate-600 mt-1.5 text-center">
+                            More timesteps = better agent but longer wait
+                        </p>
+                    </div>
+
                     <p class="text-xs text-slate-500 mt-3 text-center">
                         Training runs on CPU and may take 1–3 minutes depending on timesteps.
                     </p>
@@ -220,6 +316,7 @@
 <script>
 function trainingManager(simulationId, csrfToken) {
     return {
+        // --- 1. Reactive Data Properties ---
         simulationId:   simulationId,
         isRunning:      false,
         aiOnline:       {{ $aiOnline ? 'true' : 'false' }},
@@ -233,6 +330,7 @@ function trainingManager(simulationId, csrfToken) {
         startedAt:      null,
         result:         null,
         errorMsg:       '',
+        selectedTimesteps: '10000', // <-- Added here so Alpine tracks radio button changes
 
         init() {
             // Check if a run is already in progress
@@ -263,6 +361,10 @@ function trainingManager(simulationId, csrfToken) {
                         'X-CSRF-TOKEN': csrfToken,
                         'Accept':       'application/json',
                     },
+                    // --- 2. Pass Selected Timesteps to your Laravel backend ---
+                    body: JSON.stringify({
+                        timesteps: this.selectedTimesteps
+                    }),
                 });
 
                 const data = await res.json();
@@ -333,6 +435,38 @@ function trainingManager(simulationId, csrfToken) {
                 this.pollInterval = null;
             }
         },
+    }
+}
+
+function inferencePanel(simId, csrfToken) {
+    return {
+        inferring:   false,
+        allocations: [],
+        inferError:  '',
+
+        async runInfer() {
+            this.inferring  = true;
+            this.inferError = '';
+            this.allocations = [];
+
+            try {
+                const res  = await fetch(`/simulations/${simId}/infer`, {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    this.inferError = data.error || 'Inference failed.';
+                } else {
+                    this.allocations = data.allocations || [];
+                }
+            } catch(e) {
+                this.inferError = 'Network error: ' + e.message;
+            } finally {
+                this.inferring = false;
+            }
+        }
     }
 }
 </script>

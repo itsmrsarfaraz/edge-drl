@@ -58,6 +58,21 @@
                 Run Simulation
             </a>
 
+            {{-- Clone with opposite algorithm --}}
+            <form method="POST" action="{{ route('simulations.clone', $simulation) }}">
+                @csrf
+                <button type="submit"
+                        class="flex items-center justify-center gap-2 w-full py-2.5 px-4 mt-2
+                               bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium
+                               rounded-xl transition-colors">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                    </svg>
+                    Clone as {{ $simulation->algorithm === 'PPO' ? 'DQN' : 'PPO' }}
+                </button>
+            </form>
+
             {{-- Analytics Link (only if results exist) --}}
             @if($simulation->latestResult)
             <a href="{{ route('simulations.analytics.show', $simulation) }}"
