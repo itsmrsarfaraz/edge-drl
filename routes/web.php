@@ -5,6 +5,7 @@ use App\Http\Controllers\EdgeNodeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SimulationController;
 use App\Http\Controllers\TaskController;
+use App\Http\Controllers\TrainingController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn() => redirect()->route('login'));
@@ -41,6 +42,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('simulations/{simulation}/tasks')->name('simulations.tasks.')->group(function () {
         Route::get('/',          [TaskController::class, 'index'])->name('index');
         Route::post('/generate', [TaskController::class, 'generate'])->name('generate');
+    });
+
+    // Training — nested under simulations
+    Route::prefix('simulations/{simulation}/training')->name('simulations.training.')->group(function () {
+        Route::get('/',                              [TrainingController::class, 'show'])->name('show');
+        Route::post('/start',                        [TrainingController::class, 'start'])->name('start');
+        Route::get('/{trainingRun}/status',          [TrainingController::class, 'status'])->name('status');
     });
 });
 
