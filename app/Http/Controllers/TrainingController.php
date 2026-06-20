@@ -108,21 +108,23 @@ class TrainingController extends Controller
             return response()->json(['error' => 'AI Engine offline.'], 503);
         }
 
+        // Use ALL tasks — not just pending
+        // After training, tasks are marked completed/delayed so pending count = 0
         $tasks = $simulation->tasks()
-            ->where('status', 'pending')
+            ->orderBy('id')
             ->take(50)
             ->get()
             ->map(fn($t) => [
                 'task_id_label'      => $t->task_id_label,
                 'priority'           => $t->priority,
-                'cpu_requirement'    => $t->cpu_requirement,
-                'memory_requirement' => $t->memory_requirement,
-                'deadline'           => $t->deadline,
+                'cpu_requirement'    => (float) $t->cpu_requirement,
+                'memory_requirement' => (float) $t->memory_requirement,
+                'deadline'           => (float) $t->deadline,
             ])
             ->toArray();
 
         if (empty($tasks)) {
-            return response()->json(['error' => 'No pending tasks to allocate.'], 422);
+            return response()->json(['error' => 'No tasks found. Generate tasks first.'], 422);
         }
 
         $nodes         = $simulation->edgeNodes()->orderBy('id')->get();
@@ -138,8 +140,13 @@ class TrainingController extends Controller
             'mem_capacities' => $memCapacities,
         ]);
 
+        if (isset($result['error'])) {
+            return response()->json(['error' => $result['error']], 500);
+        }
+
         return response()->json($result);
     }
+
     // ── Poll training status ───────────────────────────────────
 
     public function status(Simulation $simulation, TrainingRun $trainingRun): JsonResponse
